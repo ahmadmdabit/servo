@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: 🛎️ Checkout source
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -25,13 +25,13 @@ jobs:
         uses: actions/cache@v3
         id: cargo-cache
         with:
-          path: |
-            ${{ runner.cache }}/cargo/registry
-            ${{ runner.cache }}/cargo/git
+          path:
+            ~/.cargo/registry
+            ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: ⚙️ Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           # servo’s rust-toolchain pins to a nightly or specific version
           toolchain: ${{ env.RUSTUP_TOOLCHAIN_FILE }}   # picks up version from rust-toolchain
@@ -41,7 +41,7 @@ jobs:
       - name: 🐍 Install Python (for mach)
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'    # Servo’s tooling works with 3.x
+          python-version: '3.11'    # Servo’s tooling works with 3.x
 
       - name: ⚡ Bootstrap Servo build system
         # Activate a clean virtualenv & install Servo’s Python bits
