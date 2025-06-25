@@ -1,80 +1,77 @@
-# .github/workflows/windows-build.yml
-name: Build Servo on Windows x64
+name: Build Servo (Windows x64)
+on: [push]
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
+env:
+  RUSTUP_TOOLCHAIN_FILE: rust-toolchain
 
 jobs:
-  build-windows:
+  build:
     name: Build Servo (Windows x64)
-    runs-on: windows-latest
-
-    env:
-      RUSTUP_TOOLCHAIN_FILE: rust-toolchain
-
+    runs-on: windows-2022
     steps:
-      - name: 🛎️ Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          repository: ahmadmdabit/servo
           submodules: true
 
-      - name: 📦 Cache Cargo registry & git index
+      - name: Restore cargo cache
         uses: actions/cache@v3
-        id: cargo-cache
         with:
-          path:
+          path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: ⚙️ Install Rust toolchain
+      - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           override: true
           components: rustfmt, clippy
+          cache: true
+          cache-on-failure: true
+          cache-bin: true
 
-      - name: 🐍 Install Python (for mach)
+      - name: Restore Rust build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: ✨ Setup Python Virtual Environment and Install uv
+      # CORRECTED STEP:
+      # This step now correctly creates the virtual environment, installs dependencies into it,
+      # and adds the venv's Scripts directory to the PATH for subsequent steps.
+      - name: Install Python dependencies and add venv to PATH
+        shell: pwsh
         run: |
-          # Install pip and virtualenv
           python -m pip install --upgrade pip virtualenv
-          # Create the virtual environment
           python -m virtualenv .venv
-          # Activate the virtual environment for this specific run block
-          .venv\Scripts\activate
-          # Install uv within the virtual environment
+          .venv\Scripts\activate.ps1
           pip install uv
-        shell: powershell # Use PowerShell as the default shell for this step
+          echo "$env:GITHUB_WORKSPACE\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: 🔧 Add venv Scripts to PATH
-        # This ensures the virtual environment's executables (including uv if installed there)
-        # are available to subsequent steps.
-        run: |
-          $env:Path += ";${{ github.workspace }}\.venv\Scripts"
-          echo "C:\a\servo\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding Utf8 -Append
-        shell: pwsh # Use PowerShell for this specific step to correctly add to GITHUB_PATH
-
-      - name: ⚡ Bootstrap Servo build system
-        # mach.bat should now find 'uv' because its location is on the PATH
+      - name: Bootstrap
         run: .\mach.bat bootstrap
+        shell: pwsh
 
-      - name: 🏗️ Build Servo (Release)
-        run: .\mach.bat build --release
+      - name: Build Servo
+        run: .\mach.bat build --dev
+        shell: pwsh
 
-      - name: 📤 Upload Release Binaries
+      - name: Package Servo
+        run: .\mach.bat package --dev
+        shell: pwsh
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: servo-windows-x64
+          name: servo-windows-msvc
           path: |
-            ./target/x86_64-pc-windows-msvc/release/servo.exe
-            ./target/x86_64-pc-windows-msvc/release/components/**
-
-      - name: ✅ Build succeeded
-        if: ${{ success() }}
-        run: echo "Servo built successfully for Windows x64!"
+            target/dev/servo.exe
+            target/dev/servo.pdb
+            target/dev/resources
+            target/dev/*.dll
