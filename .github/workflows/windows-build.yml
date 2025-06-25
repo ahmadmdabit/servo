@@ -58,7 +58,7 @@ jobs:
         # If you hit OOM or build stalls, you can pass `-v` for verbose logs.
 
       - name: 📤 Upload Release Binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: servo-windows-x64
           path: |
