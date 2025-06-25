@@ -40,17 +40,28 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: ✨ Setup Python Virtual Environment
+      - name: ✨ Setup Python Virtual Environment and Install uv
         run: |
+          # Install pip and virtualenv
           python -m pip install --upgrade pip virtualenv
+          # Create the virtual environment
           python -m virtualenv .venv
-        # Add the virtual environment's Scripts directory to PATH for subsequent steps
-      - name: 🔧 Add venv to PATH
-        run: echo "C:\a\servo\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding Utf8 -Append
+          # Activate the virtual environment for this specific run block
+          .venv\Scripts\activate
+          # Install uv within the virtual environment
+          pip install uv
+        shell: powershell # Use PowerShell as the default shell for this step
+
+      - name: 🔧 Add venv Scripts to PATH
+        # This ensures the virtual environment's executables (including uv if installed there)
+        # are available to subsequent steps.
+        run: |
+          $env:Path += ";${{ github.workspace }}\.venv\Scripts"
+          echo "C:\a\servo\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding Utf8 -Append
         shell: pwsh # Use PowerShell for this specific step to correctly add to GITHUB_PATH
 
       - name: ⚡ Bootstrap Servo build system
-        # Now mach.bat and python commands will automatically use the venv
+        # mach.bat should now find 'uv' because its location is on the PATH
         run: .\mach.bat bootstrap
 
       - name: 🏗️ Build Servo (Release)
